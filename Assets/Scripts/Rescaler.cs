@@ -10,6 +10,6 @@ public class Rescaler : MonoBehaviour
     void Update()
     {
         if (Input.GetMouseButtonDown(0))
-            target.velocity += (Vector2)((target.transform.position - transform.position).normalized * 10f);
+            target.linearVelocity += (Vector2)((target.transform.position - transform.position).normalized * 10f);
     }
 }

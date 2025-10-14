@@ -89,7 +89,7 @@ public class PhysTest : MonoBehaviour
             
             // Move the rigidbody by adding force to the object (this keeps the physics system in play)
             Vector2 force = (targetPosition - rb.position) * dragSpeed;
-            rb.velocity = force;
+            rb.linearVelocity = force;
         }
     }
 }

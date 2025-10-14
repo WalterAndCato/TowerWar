@@ -21,12 +21,12 @@ public class WaterPhys : MonoBehaviour
     {
         if (transform.position.y <= waterLevel)
         {
-            _rb.drag = waterDrag;
+            _rb.linearDamping = waterDrag;
             _rb.AddForce(Vector2.up * (updraftForce * (waterLevel - transform.position.y)), ForceMode2D.Force);
         }
         else
         {
-            _rb.drag = airDrag;
+            _rb.linearDamping = airDrag;
         }
     }
 }
