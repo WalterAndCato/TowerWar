@@ -191,7 +191,7 @@ public class ProcTower : MonoBehaviour
             // Letzte Reihe ist kein split
             var brick1 = Instantiate(brick, transform);
             brick1.transform.localPosition = new Vector3(0.25f, layers * 0.4f + 0.2f);
-            brick.transform.localScale = new Vector3(0.5f, 0.4f);
+            brick1.transform.localScale = new Vector3(0.5f, 0.4f);
             var joint1 = brick1.AddComponent<TowerJoint>();
             joint1.breakingForce = breakingForce;
             joint1.breakingTorque = breakingTorque;
@@ -204,7 +204,7 @@ public class ProcTower : MonoBehaviour
 
             var brick2 = Instantiate(brick, transform);
             brick2.transform.localPosition = new Vector3(0.875f + bricksPerLayer - 1.25f, layers * 0.4f + 0.2f);
-            brick.transform.localScale = new Vector3(0.5f, 0.4f);
+            brick2.transform.localScale = new Vector3(0.5f, 0.4f);
             var joint2 = brick2.AddComponent<TowerJoint>();
             joint2.breakingForce = breakingForce;
             joint2.breakingTorque = breakingTorque;

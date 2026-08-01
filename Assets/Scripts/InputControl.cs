@@ -1,15 +1,17 @@
 using System;
+using TowerWar.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-public class InputControl : MonoBehaviour
+public class InputControl : MonoBehaviour, IPlayerTurnController
 {
-    float delta = 0;
-    bool fire = false;
-    double fireStartTime = 0;
-    float rotation = 0;
-    float power = 0;
+    private float _rotationInput;
+    private bool _isCharging;
+    private double _chargeStartTime;
+    private float _rotation;
+    private float _charge;
+    private bool _turnActive;
 
     public bool isPlayerOne = true;
 
@@ -18,28 +20,58 @@ public class InputControl : MonoBehaviour
     public AudioSource powerAudioSource;
 
     public GameController gameController;
-    Vector2 currentBlockSelection;
+    private Vector2 _currentBlockSelection;
 
     public Player attachedPlayer;
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
-        if (!attachedPlayer)
+        if (!_turnActive || !attachedPlayer || !gameController)
             return;
         
-        rotation -= 90 * delta * Time.deltaTime;
+        _rotation -= gameController.RotationSpeed * _rotationInput * Time.deltaTime;
 
-        if(fire)
-            power = Math.Min((float)(Time.timeAsDouble - fireStartTime), 1.0f);
+        if (_isCharging)
+            _charge = Math.Min((float)(Time.timeAsDouble - _chargeStartTime), 1.0f);
         else
-            power = 0.0f;
+            _charge = 0.0f;
 
         UpdateUi();
     }
 
+    public void BeginTurn(Player player, GameController controller)
+    {
+        attachedPlayer = player;
+        gameController = controller;
+        isPlayerOne = player.PlayerIndex == 0;
+        directionImage = player.directionImage;
+        powerSlider = player.powerSlider;
+        powerAudioSource = player.powerAudioSource;
+        _rotation = isPlayerOne ? 0f : 180f;
+        _turnActive = true;
+        UpdateUi();
+    }
+
+    public void EndTurn()
+    {
+        _turnActive = false;
+        _rotationInput = 0f;
+        _isCharging = false;
+        _charge = 0f;
+
+        if (powerAudioSource)
+            powerAudioSource.Stop();
+        if (directionImage)
+            directionImage.SetActive(false);
+        if (powerSlider)
+            powerSlider.fillAmount = 0f;
+    }
+
     private void UpdateUi()
     {
+        if (!directionImage || !powerSlider || !gameController)
+            return;
+
         if (gameController.gameFinished)
         {
             directionImage.gameObject.SetActive(false);
@@ -51,7 +83,7 @@ public class InputControl : MonoBehaviour
                 directionImage.gameObject.SetActive(gameController.blockSelected);
 
                 if (!gameController.blockSelected)
-                    rotation = isPlayerOne ? 0 : 180;
+                    _rotation = isPlayerOne ? 0 : 180;
             }
             else
             {
@@ -59,62 +91,59 @@ public class InputControl : MonoBehaviour
             }
         }
 
-        directionImage.transform.eulerAngles = new Vector3(0, 0, rotation);
-        powerSlider.fillAmount = power;
+        directionImage.transform.eulerAngles = new Vector3(0, 0, _rotation);
+        powerSlider.fillAmount = _charge;
     }
 
     public void TargetDirection(InputAction.CallbackContext context)
     {
-        if (!attachedPlayer || gameController.GetCurrentPlayer() != (isPlayerOne ? 0 : 1))
+        if (!_turnActive || !attachedPlayer || !gameController.CanPlayerAct(isPlayerOne ? 0 : 1))
             return;
         
         if(!gameController.blockSelected)
             return;
 
-        delta = context.ReadValue<float>();
+        _rotationInput = context.ReadValue<float>();
     }
 
     void Fire(bool pressed)
     {
-        if(pressed)
+        if (pressed)
         {
-            if(!fire)
+            if (!_isCharging)
             {
-                fire = true;
-                fireStartTime = Time.timeAsDouble;
-                powerAudioSource.Play(0);
+                _isCharging = true;
+                _chargeStartTime = Time.timeAsDouble;
+                if (powerAudioSource)
+                    powerAudioSource.Play(0);
             }
         }
-        else if(fire)
+        else if (_isCharging)
         {
-            Vector2 dir = new Vector2((float)Math.Cos(rotation * Math.PI/180),
-                                      (float)Math.Sin(rotation * Math.PI/180));
-            Vector2 v = dir * (power + 0.2f) * 10000.0f;
+            var velocity = ShotCalculator.CalculateVelocity(
+                _rotation,
+                _charge,
+                gameController.MaximumShotForce,
+                gameController.MinimumShotCharge);
 
-            fire = false;
-            rotation = (gameController.GetCurrentPlayer() == 0)? 0 : 180;
-            power = 0.0f;
-            powerAudioSource.Stop();
+            _isCharging = false;
+            _charge = 0.0f;
+            if (powerAudioSource)
+                powerAudioSource.Stop();
             UpdateUi();
-            var oldDir = directionImage;
-
-            if(gameController)
-                gameController.Fire(v);
-            
-            // Workaround for solo mode
-            oldDir.gameObject.SetActive(false);
-            //rotation = (gameController.GetCurrentPlayer() == 0)? 0 : 180;
+            gameController.Fire(velocity);
         }
     }
 
     public void PrimaryAction(InputAction.CallbackContext context)
     {
-        if (!attachedPlayer || gameController.GetCurrentPlayer() != (isPlayerOne ? 0 : 1))
+        if (!_turnActive || !attachedPlayer || !gameController.CanPlayerAct(isPlayerOne ? 0 : 1))
             return;
         
         if (gameController.gameFinished)
         {
             gameController.ReloadGame();
+            return;
         }
 
         bool pressed = context.ReadValue<float>() != 0;
@@ -122,7 +151,7 @@ public class InputControl : MonoBehaviour
             Fire(pressed);
         else if (!pressed)
         {
-            gameController.blockSelected = true;
+            gameController.SelectCurrentBlock();
             if(AudioManager.Instance != null)
                 AudioManager.Instance.PlaySound("select1");
         }
@@ -130,16 +159,16 @@ public class InputControl : MonoBehaviour
 
     public void BlockSelection(InputAction.CallbackContext context)
     {
-        if (!attachedPlayer || gameController.GetCurrentPlayer() != (isPlayerOne ? 0 : 1))
+        if (!_turnActive || !attachedPlayer || !gameController.CanPlayerAct(isPlayerOne ? 0 : 1))
             return;
         
         if(gameController.blockSelected)
             return;
 
         Vector2 direction = context.ReadValue<Vector2>();
-        if(direction.magnitude < 0.7 && currentBlockSelection.magnitude > 0.8)
-            gameController.BlockSelection(currentBlockSelection.normalized);
+        if(direction.magnitude < 0.7 && _currentBlockSelection.magnitude > 0.8)
+            gameController.BlockSelection(_currentBlockSelection.normalized);
 
-        currentBlockSelection = direction;
+        _currentBlockSelection = direction;
     }
 }

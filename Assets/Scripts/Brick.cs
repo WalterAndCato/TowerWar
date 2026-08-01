@@ -3,13 +3,14 @@ using UnityEngine;
 
 public class Brick : MonoBehaviour
 {
-    public event Action OnRemoveFromTower;
+    public event Action<Brick> OnRemoveFromTower;
     public float        minForce     = 50;
     public float        forceToBreak = 1000;
     public GameObject   explosionPrefab;
     public Action<Transform> stopTrackingStone;
 
     private float _damagePoints;
+    private bool _removedFromTower;
 
     private void Start()
     {
@@ -27,7 +28,8 @@ public class Brick : MonoBehaviour
             stopTrackingStone = null;
         }
         
-        var force = col.relativeVelocity.magnitude * col.rigidbody.mass;
+        var collidingMass = col.rigidbody ? col.rigidbody.mass : 1f;
+        var force = col.relativeVelocity.magnitude * collidingMass;
 
         if (force < minForce)
             return;
@@ -67,7 +69,7 @@ public class Brick : MonoBehaviour
             stopTrackingStone = null;
         }
         
-        if (transform.position.y < -14)
+        if (!_removedFromTower && transform.position.y < -14)
         {
             if (stopTrackingStone != null)
             {
@@ -76,7 +78,8 @@ public class Brick : MonoBehaviour
                 stopTrackingStone = null;
             }
             
-            OnRemoveFromTower?.Invoke();
+            _removedFromTower = true;
+            OnRemoveFromTower?.Invoke(this);
             OnRemoveFromTower = null;
         }
     }

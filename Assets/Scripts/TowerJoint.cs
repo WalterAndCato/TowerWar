@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class TowerJoint : MonoBehaviour
@@ -20,7 +19,7 @@ public class TowerJoint : MonoBehaviour
         _ref = GetComponent<JointRef>();
 
         if (!_ref)
-            _ref = transform.AddComponent<JointRef>();
+            _ref = gameObject.AddComponent<JointRef>();
     }
 
     private void Start()
@@ -30,7 +29,7 @@ public class TowerJoint : MonoBehaviour
             if (!join.connectedBody && !join.fixAnchor)
                 continue;
             
-            var joint = transform.AddComponent<FixedJoint2D>();
+            var joint = gameObject.AddComponent<FixedJoint2D>();
 
             if (join.fixAnchor)
             {
@@ -53,7 +52,7 @@ public class TowerJoint : MonoBehaviour
             var jointRef = join.connectedBody.GetComponent<JointRef>();
 
             if (!jointRef)
-                jointRef = join.connectedBody.transform.AddComponent<JointRef>();
+                jointRef = join.connectedBody.gameObject.AddComponent<JointRef>();
 
             join.Joint = joint;
             jointRef.Joints.Add(joint);

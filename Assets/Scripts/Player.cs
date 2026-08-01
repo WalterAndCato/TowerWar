@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,6 +11,9 @@ public class Player : MonoBehaviour
     private Brick                     selectedBrick;
     private GameObject                shotBullets;
     private List<ReactivateCollision> _reactivateCollisions = new();
+    private readonly HashSet<Brick>    _registeredBricks = new();
+    private GameController             _gameController;
+    private bool                       _deathReported;
     public  float                     waterLevel            = -15.25f;
     public Material highlightMaterial;
     public Material defaultMaterial;
@@ -22,32 +24,16 @@ public class Player : MonoBehaviour
     public AudioSource powerAudioSource;
 
     public event Action OnDeath;
+    public int PlayerIndex => isPlayerOne ? 0 : 1;
+    public Transform ShootPoint => shootPoint;
 
-    public void Start()
+    public void Initialize(GameController gameController)
     {
-        shotBullets = new GameObject("shotBullets");
+        _gameController = gameController;
+        _deathReported = false;
 
-        var inputs = FindObjectsOfType<InputControl>();
-        var gameController = FindObjectOfType<GameController>();
-        var input = inputs.FirstOrDefault(a => a.isPlayerOne == isPlayerOne);
-
-        if (input == null)
-        {
-            var go = Instantiate(backupInputControl);
-            input = go.GetComponent<InputControl>();
-            input.isPlayerOne = !isPlayerOne;
-            gameController.singlePlayerControl = input;
-        }
-        else if (input == gameController.singlePlayerControl)
-        {
-            input.isPlayerOne = true;
-        }
-
-        input.directionImage   = directionImage;
-        input.gameController   = gameController;
-        input.powerSlider      = powerSlider;
-        input.powerAudioSource = powerAudioSource;
-        input.attachedPlayer   = this;
+        if (!shotBullets)
+            shotBullets = new GameObject($"Player{PlayerIndex + 1} Projectiles");
     }
 
     private void Update()
@@ -70,8 +56,12 @@ public class Player : MonoBehaviour
             _reactivateCollisions.Remove(remove);
         }
 
-        if (transform.position is { x: > 50 or < -50 } or { y: < -50 } || transform.position.y < waterLevel)
+        if (!_deathReported &&
+            (transform.position is { x: > 50 or < -50 } or { y: < -50 } || transform.position.y < waterLevel))
+        {
+            _deathReported = true;
             OnDeath?.Invoke();
+        }
     }
 
     void findInitialBlock()
@@ -99,17 +89,20 @@ public class Player : MonoBehaviour
         if (activate)
         {
             foreach (Brick block in tower.GetComponentsInChildren<Brick>())
-                block.OnRemoveFromTower += () => RemoveBlockFromTower(block.gameObject);
+            {
+                if (_registeredBricks.Add(block))
+                    block.OnRemoveFromTower += RemoveBlockFromTower;
+            }
 
             findInitialBlock();
         }
     }
 
-    void RemoveBlockFromTower(GameObject block)
+    private void RemoveBlockFromTower(Brick block)
     {
         block.transform.parent = shotBullets.transform;
 
-        if (FindObjectOfType<GameController>().GetCurrentPlayer() == (isPlayerOne ? 0 : 1))
+        if (_gameController && _gameController.GetCurrentPlayer() == PlayerIndex)
             findInitialBlock();
     }
 
@@ -154,10 +147,10 @@ public class Player : MonoBehaviour
     }
 
 
-    public void Shoot(Vector2 direction)
+    public bool Shoot(Vector2 direction)
     {
         if (selectedBrick == null)
-            return;
+            return false;
 
         var bullet = selectedBrick.gameObject;
         var brick = selectedBrick;
@@ -183,16 +176,21 @@ public class Player : MonoBehaviour
             remainingTime = 1f
         });
 
-        FindObjectOfType<GameController>().StartTrackingStone(brick);
+        _gameController.StartTrackingStone(brick);
 
         if (AudioManager.Instance != null)
             AudioManager.Instance.PlaySound("shoot1");
+
+        return true;
     }
 
     void OnCollisionEnter2D(Collision2D col)
     {
-        if (col.gameObject.CompareTag("Ground"))
+        if (!_deathReported && col.gameObject.CompareTag("Ground"))
+        {
+            _deathReported = true;
             OnDeath?.Invoke();
+        }
     }
 
     private void SelectBlock(Brick block)
@@ -209,6 +207,17 @@ public class Player : MonoBehaviour
         selectedBrick = block;
         if (selectedBrick != null)
             selectedBrick.GetComponent<SpriteRenderer>().material = highlightMaterial;
+    }
+
+    private void OnDestroy()
+    {
+        foreach (var block in _registeredBricks)
+        {
+            if (block)
+                block.OnRemoveFromTower -= RemoveBlockFromTower;
+        }
+
+        _registeredBricks.Clear();
     }
 
     private class ReactivateCollision
