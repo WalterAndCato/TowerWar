@@ -22,6 +22,7 @@ public class Player : MonoBehaviour
     public AudioSource powerAudioSource;
 
     public event Action OnDeath;
+    private bool _dead;
 
     public void Start()
     {
@@ -70,8 +71,20 @@ public class Player : MonoBehaviour
             _reactivateCollisions.Remove(remove);
         }
 
-        if (transform.position is { x: > 50 or < -50 } or { y: < -50 } || transform.position.y < waterLevel)
-            OnDeath?.Invoke();
+        var collider = GetComponent<Collider2D>();
+        var lowestPoint = collider != null && collider.enabled
+            ? collider.bounds.min.y
+            : transform.position.y;
+        if (transform.position is { x: > 50 or < -50 } or { y: < -50 } || lowestPoint <= waterLevel)
+            Die();
+    }
+
+    private void Die()
+    {
+        if (_dead)
+            return;
+        _dead = true;
+        OnDeath?.Invoke();
     }
 
     void findInitialBlock()
@@ -192,7 +205,7 @@ public class Player : MonoBehaviour
     void OnCollisionEnter2D(Collision2D col)
     {
         if (col.gameObject.CompareTag("Ground"))
-            OnDeath?.Invoke();
+            Die();
     }
 
     private void SelectBlock(Brick block)
