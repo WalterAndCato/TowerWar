@@ -1,0 +1,5 @@
+{
+    "name": "SelectionTests",
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

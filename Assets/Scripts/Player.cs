@@ -10,6 +10,7 @@ public class Player : MonoBehaviour
     public  Transform                 shootPoint;
     public  GameObject                tower;
     private Brick                     selectedBrick;
+    private Color                     selectedBrickOriginalColor;
     private GameObject                shotBullets;
     private List<ReactivateCollision> _reactivateCollisions = new();
     public  float                     waterLevel            = -15.25f;
@@ -161,7 +162,7 @@ public class Player : MonoBehaviour
 
         var bullet = selectedBrick.gameObject;
         var brick = selectedBrick;
-        bullet.GetComponent<SpriteRenderer>().material = defaultMaterial;
+        bullet.GetComponent<SpriteRenderer>().color = selectedBrickOriginalColor;
         bullet.transform.position                   = shootPoint.position;
         bullet.transform.parent                     = shotBullets.transform;
         bullet.GetComponent<Rigidbody2D>().collisionDetectionMode = CollisionDetectionMode2D.Continuous;
@@ -204,11 +205,12 @@ public class Player : MonoBehaviour
             return;
 
         if (selectedBrick != null)
-            selectedBrick.GetComponent<SpriteRenderer>().material = defaultMaterial;
+            selectedBrick.GetComponent<SpriteRenderer>().color = selectedBrickOriginalColor;
 
         selectedBrick = block;
-        if (selectedBrick != null)
-            selectedBrick.GetComponent<SpriteRenderer>().material = highlightMaterial;
+        var renderer = selectedBrick.GetComponent<SpriteRenderer>();
+        selectedBrickOriginalColor = renderer.color;
+        renderer.color = new Color(1f, 1f, 0f, 1f);
     }
 
     private class ReactivateCollision
