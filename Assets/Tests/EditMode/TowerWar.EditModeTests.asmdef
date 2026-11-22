@@ -1,0 +1,5 @@
+{
+    "name": "TowerWar.EditModeTests",
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

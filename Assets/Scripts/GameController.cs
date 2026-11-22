@@ -6,6 +6,9 @@ using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour
 {
+    public enum MatchState { Playing, Finished }
+    public MatchState State { get; private set; } = MatchState.Playing;
+    public Player Winner { get; private set; }
     public  TMP_Text winText;
     public  TMP_Text restartText;
     private Player   _player1;
@@ -23,8 +26,8 @@ public class GameController : MonoBehaviour
         _player1 = GameObject.Find("Player1").GetComponent<Player>();
         _player2 = GameObject.Find("Player2").GetComponent<Player>();
 
-        _player1.OnDeath += () => GameOver("Player 2");
-        _player2.OnDeath += () => GameOver("Player 1");
+        _player1.OnDeath += () => GameOver(_player2);
+        _player2.OnDeath += () => GameOver(_player1);
 
         winText.gameObject.SetActive(false);
         restartText.gameObject.SetActive(false);
@@ -64,6 +67,8 @@ public class GameController : MonoBehaviour
 
     public void Fire(Vector2 v)
     {
+        if (State == MatchState.Finished)
+            return;
         _currentPlayer.Shoot(v);
         SwitchPlayer();
     }
@@ -134,19 +139,22 @@ public class GameController : MonoBehaviour
         blockSelected = false;
     }
 
-    void GameOver(string winner)
+    void GameOver(Player winner)
     {
-        if(gameFinished)
+        if (State == MatchState.Finished)
             return;
-        
-        winText.text = winner + " wins!";
+
+        Winner = winner;
+        State = MatchState.Finished;
+        gameFinished = true;
+        winText.text = (winner == _player1 ? "Player 1" : "Player 2") + " wins!";
         winText.gameObject.SetActive(true);
         restartText.gameObject.SetActive(true);
-        gameFinished = true;
         _currentPlayer.Activate(false);
         if(AudioManager.Instance != null)
             AudioManager.Instance.PlaySound("death1");
         
-        music.SetMode(Music.Mode.End);
+        if (music != null)
+            music.SetMode(Music.Mode.End);
     }
 }
